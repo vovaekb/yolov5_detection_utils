@@ -13,11 +13,6 @@ from imgaug import augmenters as iaa
 from PIL import Image
 from PIL import ImageDraw
 
-LABELS_DIR = "train_data/labels"
-IMAGES_DIR = "train_data/images"
-AUG_IMAGES_DIR = "train_data/aug_images"
-AUG_IMAGES_BBOXES_DIR ="train_data/aug_images_bboxes"
-AUG_LABELS_DIR = "train_data/aug_labels"
 IMG_PREFIX = "aug1_"
 IMG_WIDTH = 600
 IMG_HEIGHT = 400
@@ -268,10 +263,9 @@ class DataAugmenter:
 
 
     def process(self):
-        pass
-        # self.setup()
-        # self.convert_to_df()
-        # self.augment()
+        self.setup()
+        self.convert_to_df()
+        self.augment()
         
 
 def augment_data():
@@ -279,7 +273,7 @@ def augment_data():
     ap.add_argument("-p", "--path", required=True,
         help="Path to data")
     args = vars(ap.parse_args())
-    base_dir = args['path'] # "train_data" 
+    base_dir = args['path'] 
     augmenter = DataAugmenter(base_dir)
     augmenter.process()
 
