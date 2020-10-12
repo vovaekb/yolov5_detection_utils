@@ -3,6 +3,7 @@ import re
 import math
 import cv2
 import yaml
+import argparse
 import numpy as np
 import pandas as pd
 import imageio
@@ -36,10 +37,20 @@ class DataAugmenter:
     get_class_folders()
         Obtains list of classes from folder names in training data
     """
-    def __init__(self):
+    def __init__(self, base_dir):
         self.classes = None
         self.bb_list = []
         self.bb_list_df = None
+        self.labels_dir = "%s/labels" % base_dir
+        self.images_dir = "%s/images" % base_dir
+        self.aug_images_dir = "%s/aug_images" % base_dir
+        self.aug_images_bboxes_dir = "%s/aug_images_bboxes" % base_dir
+        self.aug_labels_dir = "%s/aug_labels" % base_dir
+        print('labels_dir:', self.labels_dir)
+        print('images_dir:', self.images_dir)
+        print('aug_images_dir:', self.aug_images_dir)
+        print('aug_images_bboxes_dir:', self.aug_images_bboxes_dir)
+        print('aug_labels_dir:', self.aug_labels_dir)
         self.aug = iaa.SomeOf(2, [
             iaa.Affine(scale=(0.5, 1.5)),
             iaa.Affine(rotate=(-60, 60)),
@@ -49,7 +60,7 @@ class DataAugmenter:
         ])
 
     def setup(self):
-        self.classes = list(self.get_class_folders(LABELS_DIR))
+        self.classes = list(self.get_class_folders(self.labels_dir))
         # print(self.classes)
         self.classes.remove('normal')
         self.classes = sorted(self.classes, key=str.lower)
@@ -118,7 +129,7 @@ class DataAugmenter:
         draw = ImageDraw.Draw(PIL_image)
         draw.rectangle([(bbs_df['xmin'].iloc[0], bbs_df['ymin'].iloc[0]), (bbs_df['xmax'].iloc[0], bbs_df['ymax'].iloc[0])], outline ='red')
         # PIL_image.show()
-        PIL_image.save('%s/%s/%s%s' % (AUG_IMAGES_BBOXES_DIR, class_name, IMG_PREFIX, filename))
+        PIL_image.save('%s/%s/%s%s' % (self.aug_images_bboxes_dir, class_name, IMG_PREFIX, filename))
         
     def save_labels(self, label_path, image_aug, class_name, bbs_df):
         """
@@ -158,15 +169,15 @@ class DataAugmenter:
         Parameters
 		----------
         """
-        for class_folder in self.get_class_folders(LABELS_DIR):
+        for class_folder in self.get_class_folders(self.labels_dir):
             print('class: ', class_folder)
-            label_files = [f for f in os.listdir(os.path.join(LABELS_DIR, class_folder))
+            label_files = [f for f in os.listdir(os.path.join(self.labels_dir, class_folder))
                             if f.endswith('txt') 
-                            and os.path.getsize(os.path.join(LABELS_DIR, class_folder, f)) > 0]
+                            and os.path.getsize(os.path.join(self.labels_dir, class_folder, f)) > 0]
             for label_file in label_files:
                 img_name = label_file.split('.')[0] + '.jpeg'
                 
-                with open(os.path.join(LABELS_DIR, class_folder, label_file)) as f:
+                with open(os.path.join(self.labels_dir, class_folder, label_file)) as f:
                     for line in f:
                         # print(line.split(' '))
                         class_ind = int(line.split(' ')[0])
@@ -210,7 +221,7 @@ class DataAugmenter:
                 filename_group_df = filename_group_df.drop(['index'], axis=1)
                 
                 # read image and bbox labels
-                image_path = '%s/%s/%s' % (IMAGES_DIR, class_name, filename) 
+                image_path = '%s/%s/%s' % (self.images_dir, class_name, filename) 
                 image = imageio.imread(image_path)
                 bb_array = filename_group_df.drop(['filename', 'width', 'height', 'class'], axis=1).values
                 bbs = BoundingBoxesOnImage.from_xyxy_array(bb_array, shape=image.shape)
@@ -243,12 +254,12 @@ class DataAugmenter:
                         if draw_bboxes: 
                             self.draw_bbox(image_aug, class_name, filename, bbs_df)
                         # save augmented image
-                        cv2.imwrite('%s/%s/%s%s' % (AUG_IMAGES_DIR, class_name, IMG_PREFIX, filename), image_aug)
+                        cv2.imwrite('%s/%s/%s%s' % (self.aug_images_dir, class_name, IMG_PREFIX, filename), image_aug)
                         #   append rows to aug_bbs_xy data frame
                         aug_bbs_xy = pd.concat([aug_bbs_xy, aug_df])
                         
                         # write bboxes to label file
-                        label_path = os.path.join(AUG_LABELS_DIR, class_name, name + '.txt')
+                        label_path = os.path.join(self.aug_images_dir, class_name, name + '.txt')
                         self.save_labels(label_path, image_aug, class_name, bbs_df)
         
         # construct dataframe with updated images and bounding boxes annotations 
@@ -257,13 +268,19 @@ class DataAugmenter:
 
 
     def process(self):
-        self.setup()
-        self.convert_to_df()
-        self.augment()
+        pass
+        # self.setup()
+        # self.convert_to_df()
+        # self.augment()
         
 
 def augment_data():
-    augmenter = DataAugmenter()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("-p", "--path", required=True,
+        help="Path to data")
+    args = vars(ap.parse_args())
+    base_dir = args['path'] # "train_data" 
+    augmenter = DataAugmenter(base_dir)
     augmenter.process()
 
 if __name__ == '__main__':
